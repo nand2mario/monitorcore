@@ -43,15 +43,120 @@ localparam CONF_STR = {
     "V,v",`BUILD_DATE
 };
 
-// TODO: implement slave SPI interface, and SPI command processing state machine
-// Commands (all data is little-endian):
-// 1: get core config string (null-terminated)
-// 2 x[31:0]: set core config status (x is 32-bit)
-// 3 x[7:0]: turn overlay on/off
-// 4 x[7:0] y[7:0]: move text cursor to (x, y)
-// 5 <string>: display null-terminated string from cursor
-// 6 loading_state[7:0]: set loading state (rom_loading)
-// 7 len[23:0] <data>: load len bytes of data to rom_do
+// SPI input synchronization
+reg [2:0] sspi_sync;
+always @(posedge clk) sspi_sync <= {sspi_sync[1:0], sspi_cs};
+wire spi_active = ~sspi_sync[2];
+
+reg [1:0] spi_clk_sync;
+always @(posedge clk) spi_clk_sync <= {spi_clk_sync[0], sspi_clk};
+wire spi_clk_rising = (spi_clk_sync == 2'b01);
+
+reg [1:0] spi_mosi_sync;
+always @(posedge clk) spi_mosi_sync <= {spi_mosi_sync[0], sspi_mosi};
+
+// SPI shift register
+reg [7:0] spi_sr;
+reg [2:0] bit_cnt;
+reg [7:0] cmd_reg;
+reg [31:0] data_reg;
+reg [23:0] rom_remain;
+
+// Command processing state machine
+localparam STATE_IDLE = 0;
+localparam STATE_CMD = 1;
+localparam STATE_DATA = 2;
+reg [2:0] state;
+
+// Text display control
+reg textdisp_reg_char_sel;
+reg [3:0] mem_wstrb;
+reg [31:0] mem_wdata;
+
+always @(posedge clk or negedge resetn) begin
+    if (!resetn) begin
+        state <= STATE_IDLE;
+        bit_cnt <= 0;
+        spi_sr <= 0;
+        cmd_reg <= 0;
+        data_reg <= 0;
+        rom_loading <= 0;
+        rom_remain <= 0;
+        core_config <= 0;
+        textdisp_reg_char_sel <= 0;
+        mem_wstrb <= 0;
+        mem_wdata <= 0;
+    end else begin
+        rom_do_valid <= 0;
+        
+        if (spi_active) begin
+            if (spi_clk_rising) begin
+                spi_sr <= {spi_sr[6:0], spi_mosi_sync[1]};
+                bit_cnt <= bit_cnt + 1;
+                
+                if (bit_cnt == 7) begin
+                    case (state)
+                        STATE_IDLE: begin
+                            cmd_reg <= spi_sr;
+                            state <= STATE_CMD;
+                        end
+                        STATE_CMD: begin
+                            data_reg <= {data_reg[23:0], spi_sr};
+                            case (cmd_reg)
+                                2: if (data_reg[31:8]) core_config <= {data_reg[31:8], spi_sr};
+                                3: textdisp_reg_char_sel <= spi_sr[0];
+                                4: begin
+                                    mem_wdata <= {16'h0, data_reg[15:8], spi_sr};
+                                    mem_wstrb <= 4'b1111;
+                                end
+                                5: begin
+                                    mem_wdata <= {24'h0, spi_sr};
+                                    mem_wstrb <= (spi_sr == 0) ? 4'b0000 : 4'b0001;
+                                end
+                                6: rom_loading <= spi_sr[0];
+                                7: begin
+                                    if (rom_remain == 0) begin
+                                        rom_remain <= {data_reg[15:0], spi_sr} - 1;
+                                    end else begin
+                                        rom_do <= spi_sr;
+                                        rom_do_valid <= 1;
+                                        rom_remain <= rom_remain - 1;
+                                    end
+                                end
+                            endcase
+                        end
+                    endcase
+                end
+            end
+        end else begin
+            state <= STATE_IDLE;
+            bit_cnt <= 0;
+            spi_sr <= 0;
+            mem_wstrb <= 0;
+        end
+    end
+end
+
+// SPI MISO output
+reg [7:0] miso_sr;
+reg [2:0] miso_bit;
+reg [7:0] conf_str_idx;
+
+always @(posedge clk) begin
+    if (!spi_active) begin
+        miso_sr <= 0;
+        miso_bit <= 0;
+        conf_str_idx <= 0;
+    end else if (spi_clk_rising) begin
+        if (cmd_reg == 1) begin
+            miso_sr <= CONF_STR[conf_str_idx];
+            conf_str_idx <= conf_str_idx + (miso_bit == 7);
+        end
+        miso_bit <= miso_bit + 1;
+    end
+end
+
+assign sspi_miso = miso_sr[7 - miso_bit];
 
 // text display
 textdisp #(.COLOR_LOGO(COLOR_LOGO)) disp (
