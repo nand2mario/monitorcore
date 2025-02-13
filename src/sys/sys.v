@@ -52,9 +52,123 @@ localparam CONF_STR = {
 // 5 <string>: display null-terminated string from cursor
 // 6 loading_state[7:0]: set loading state (rom_loading)
 // 7 len[23:0] <data>: load len bytes of data to rom_do
-always @(posedge clk) {
+// SPI command processing state machine
+reg [7:0] spi_state;
+reg [7:0] spi_cmd;
+reg [31:0] spi_data;
+reg [23:0] data_len;
+reg [23:0] data_cnt;
+reg [7:0] spi_byte;
 
-}
+localparam SPI_IDLE = 0;
+localparam SPI_CMD = 1;
+localparam SPI_DATA = 2;
+localparam SPI_STRING = 3;
+
+always @(posedge clk or negedge resetn) begin
+    if (!resetn) begin
+        spi_state <= SPI_IDLE;
+        rom_loading <= 0;
+        rom_do_valid <= 0;
+        core_config <= 0;
+        overlay <= 0;
+    end else begin
+        rom_do_valid <= 0; // Default to no data valid
+        
+        case (spi_state)
+            SPI_IDLE: begin
+                if (!sspi_cs) begin
+                    spi_state <= SPI_CMD;
+                    spi_byte <= 0;
+                end
+            end
+            
+            SPI_CMD: begin
+                if (spi_byte == 0) begin
+                    spi_cmd <= {spi_cmd[6:0], sspi_mosi};
+                    if (spi_byte == 7) begin
+                        spi_state <= SPI_DATA;
+                        spi_byte <= 0;
+                        spi_data <= 0;
+                    end
+                end
+                spi_byte <= spi_byte + 1;
+            end
+            
+            SPI_DATA: begin
+                case (spi_cmd)
+                    8'h01: begin // Get core config string
+                        // TODO: Implement string transmission
+                        spi_state <= SPI_IDLE;
+                    end
+                    
+                    8'h02: begin // Set core config
+                        spi_data <= {spi_data[30:0], sspi_mosi};
+                        if (spi_byte == 31) begin
+                            core_config <= spi_data;
+                            spi_state <= SPI_IDLE;
+                        end
+                        spi_byte <= spi_byte + 1;
+                    end
+                    
+                    8'h03: begin // Set overlay on/off
+                        spi_data <= {spi_data[30:0], sspi_mosi};
+                        if (spi_byte == 7) begin
+                            overlay <= spi_data[0];
+                            spi_state <= SPI_IDLE;
+                        end
+                        spi_byte <= spi_byte + 1;
+                    end
+                    
+                    8'h04: begin // Set text cursor position
+                        spi_data <= {spi_data[30:0], sspi_mosi};
+                        if (spi_byte == 15) begin
+                            // TODO: Set cursor position
+                            spi_state <= SPI_IDLE;
+                        end
+                        spi_byte <= spi_byte + 1;
+                    end
+                    
+                    8'h05: begin // Display string
+                        // TODO: Implement string handling
+                        spi_state <= SPI_STRING;
+                    end
+                    
+                    8'h06: begin // Set loading state
+                        spi_data <= {spi_data[30:0], sspi_mosi};
+                        if (spi_byte == 7) begin
+                            rom_loading <= spi_data[0];
+                            spi_state <= SPI_IDLE;
+                        end
+                        spi_byte <= spi_byte + 1;
+                    end
+                    
+                    8'h07: begin // Load ROM data
+                        if (spi_byte < 24) begin
+                            data_len <= {data_len[22:0], sspi_mosi};
+                        end else begin
+                            rom_do <= {rom_do[6:0], sspi_mosi};
+                            rom_do_valid <= 1;
+                            data_cnt <= data_cnt + 1;
+                            if (data_cnt == data_len - 1) begin
+                                spi_state <= SPI_IDLE;
+                            end
+                        end
+                        spi_byte <= spi_byte + 1;
+                    end
+                    
+                    default: spi_state <= SPI_IDLE;
+                endcase
+            end
+            
+            SPI_STRING: begin
+                // TODO: Implement string handling
+                if (sspi_mosi == 0) // Null terminator
+                    spi_state <= SPI_IDLE;
+            end
+        endcase
+    end
+end
 
 // text display
 textdisp #(.COLOR_LOGO(COLOR_LOGO)) disp (
