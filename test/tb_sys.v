@@ -18,7 +18,7 @@ sys #(
     .CORE_ID(1)
 ) dut (
     .clk(clk),
-    .hclk(hclk),
+    .hclk(),
     .resetn(resetn),
     .overlay(overlay),
     .overlay_x(0),
@@ -39,12 +39,7 @@ sys #(
 // Clock generation
 initial begin
     clk = 0;
-    forever #23.2 clk = ~clk;  // ~21.477MHz
-end
-
-initial begin
-    hclk = 0;
-    forever #10 hclk = ~hclk;  // 50MHz for HDMI clock
+    forever #10 clk = ~clk;     // 50Mhz
 end
 
 // SPI task

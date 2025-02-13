@@ -24,7 +24,7 @@ module sys #(
 
     // ROM loading interface
     output reg rom_loading,         // 0-to-1 loading starts, 1-to-0 loading is finished
-    output [7:0] rom_do,            // first 64 bytes are snes header + 32 bytes after snes header 
+    output reg [7:0] rom_do,            // first 64 bytes are snes header + 32 bytes after snes header 
     output reg rom_do_valid,        // strobe for rom_do
     
     output reg [31:0] core_config,
@@ -185,13 +185,7 @@ textdisp #(.COLOR_LOGO(COLOR_LOGO)) disp (
     .reg_char_di(mem_wdata) 
 );
 `else
-// Mock for iverilog
-assign overlay = 0;
-assign overlay_color = 0;
-    
-module textdisp;
-    // Empty mock module
-endmodule
+
 `endif
 
 endmodule
