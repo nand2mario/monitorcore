@@ -75,6 +75,7 @@ reg [2:0] state;
 reg textdisp_reg_char_sel;
 reg [3:0] mem_wstrb;
 reg [31:0] mem_wdata;
+reg [2:0] data_cnt;
 
 always @(posedge clk) begin
     if (!resetn) begin
@@ -106,7 +107,6 @@ always @(posedge clk) begin
                         STATE_CMD: begin
                             data_reg <= {data_reg[23:0], spi_sr};
                             // Track data bytes received per command
-                            reg [2:0] data_cnt = 0;
                             
                             case (cmd_reg)
                                 // Command 1 (get config) handled in MISO block
