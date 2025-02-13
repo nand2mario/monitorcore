@@ -35,11 +35,12 @@ module sys #(
     output sspi_miso
 );
 
-localparam CONF_STR = "Tangcores;-;O12,OSD key,Right+Select,Select+Start,Select+RB;-;V,v20240101";
+localparam integer STR_LEN = 73; // number of characters in the config string
+localparam [8*STR_LEN-1:0] CONF_STR = "Tangcores;-;O12,OSD key,Right+Select,Select+Start,Select+RB;-;V,v20240101";
 
- // SPI Commands (all data is little-endian):
+ // SPI Commands (MSB-first):
  // 1                       get core config string (null-terminated)
- // 2 x[31:0]               set core config status (x is 32-bit)
+ // 2 x[31:0]               set core config status
  // 3 x[7:0]                turn overlay on/off
  // 4 x[7:0] y[7:0]         move text cursor to (x, y)
  // 5 <string>              display null-terminated string from cursor
@@ -96,17 +97,19 @@ always @(posedge clk) begin
         if (spi_active) begin
             if (spi_clk_rising) begin
                 spi_sr <= {spi_sr[6:0], spi_mosi_sync[1]};
-                bit_cnt <= bit_cnt + 1;
+                bit_cnt <= (bit_cnt == 7) ? 3'd0 : bit_cnt + 1;
                 
                 if (bit_cnt == 7) begin
                     case (state)
                         STATE_IDLE: begin
-                            cmd_reg <= spi_sr;
+                            cmd_reg <= {spi_sr[6:0], spi_mosi_sync[1]};
                             state <= STATE_CMD;
+                            data_cnt <= 0;
                         end
                         STATE_CMD: begin
                             data_reg <= {data_reg[23:0], spi_sr};
                             // Track data bytes received per command
+                            data_cnt <= data_cnt + 1;
                             
                             case (cmd_reg)
                                 // Command 1 (get config) handled in MISO block
@@ -135,13 +138,6 @@ always @(posedge clk) begin
                                     end
                                 end
                             endcase
-                            
-                            // Increment data counter after processing byte
-                            if (cmd_reg != 0) begin
-                                data_cnt <= (bit_cnt == 7) ? data_cnt + 1 : data_cnt;
-                                // Reset counter when starting new command
-                                if (state == STATE_IDLE) data_cnt <= 0;
-                            end
                         end
                     endcase
                 end
@@ -151,6 +147,7 @@ always @(posedge clk) begin
             bit_cnt <= 0;
             spi_sr <= 0;
             mem_wstrb <= 0;
+            data_cnt <= 0;  // Reset data_cnt when SPI is inactive
         end
     end
 end
@@ -167,7 +164,10 @@ always @(posedge clk) begin
         conf_str_idx <= 0;
     end else if (spi_clk_rising) begin
         if (cmd_reg == 1) begin
-            miso_sr <= CONF_STR[conf_str_idx];
+            // Pick the correct 8-bit chunk for the nth character from the left.
+            // When conf_str_idx==0, we want the top 8 bits (character "T"),
+            // then the next character when miso_bit==7.
+            miso_sr <= CONF_STR[8*STR_LEN - 1 - (8*conf_str_idx) -: 8];
             conf_str_idx <= conf_str_idx + (miso_bit == 7);
         end
         miso_bit <= miso_bit + 1;

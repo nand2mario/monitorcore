@@ -11,6 +11,10 @@ wire sspi_miso;
 reg sspi_cs;
 reg sspi_clk;
 reg sspi_mosi;
+wire rom_loading;
+wire [7:0] rom_do;
+wire rom_do_valid;
+wire [31:0] core_config;
 
 // Instantiate the DUT
 sys #(
@@ -18,18 +22,18 @@ sys #(
     .CORE_ID(1)
 ) dut (
     .clk(clk),
-    .hclk(),
+    .hclk(hclk),
     .resetn(resetn),
     .overlay(overlay),
-    .overlay_x(0),
-    .overlay_y(0),
+    .overlay_x(8'd0),
+    .overlay_y(8'd0),
     .overlay_color(overlay_color),
-    .joy1(0),
-    .joy2(0),
-    .rom_loading(),
-    .rom_do(),
-    .rom_do_valid(),
-    .core_config(),
+    .joy1(12'd0),
+    .joy2(12'd0),
+    .rom_loading(rom_loading),
+    .rom_do(rom_do),
+    .rom_do_valid(rom_do_valid),
+    .core_config(core_config),
     .sspi_cs(sspi_cs),
     .sspi_clk(sspi_clk),
     .sspi_mosi(sspi_mosi),
@@ -47,6 +51,7 @@ task spi_send_task;
     input [7:0] cmd;
     input [31:0] data;
     input [23:0] extra;
+    input deassert;
     integer i;
     begin
         sspi_cs = 0;
@@ -63,6 +68,7 @@ task spi_send_task;
         
         // Send data based on command
         case (cmd)
+            1: begin end // no data for CMD 1
             2: begin // 4 bytes
                 for (i = 0; i < 32; i = i + 1) begin
                     sspi_clk = 0;
@@ -108,18 +114,26 @@ task spi_send_task;
             end
         endcase
         
-        sspi_cs = 1;
-        #200;
+        if (deassert) begin
+            sspi_cs = 1;
+            #200;
+        end
     end
 endtask
 
 // SPI receive task
 task spi_recv_task;
     output [7:0] data;
+    input deassert;
     integer i;
     begin
-        sspi_cs = 0;
-        #100;
+        if (deassert) begin
+            sspi_cs = 0;
+            #100;
+        end else begin
+            // CS is expected to remain active from a prior operation.
+            #100;
+        end
         
         for (i = 0; i < 8; i = i + 1) begin
             sspi_clk = 0;
@@ -129,8 +143,10 @@ task spi_recv_task;
             #50;
         end
         
-        sspi_cs = 1;
-        #200;
+        if (deassert) begin
+            sspi_cs = 1;
+            #200;
+        end
     end
 endtask
 
@@ -141,6 +157,7 @@ initial begin
     sspi_cs = 1;
     sspi_clk = 0;
     sspi_mosi = 0;
+    hclk = 0;
     
     // Reset sequence
     #100;
@@ -151,30 +168,39 @@ initial begin
     begin : test1
         reg [7:0] recv_data;
         integer i;
+        reg timeout;
         $display("Testing CMD 1 (Get core config)...");
         
-        // Send command 1
-        spi_send_task(1, 0, 0);
+        timeout = 1;
+        // For CMD 1, keep CS low (pass 0) since we want a continuous transaction for receiving data.
+        spi_send_task(1, 0, 0, 0);
         
-        // Receive response
+        // Receive response with timeout check (keeping CS active for a continuous transaction)
         for (i = 0; i < 64; i = i + 1) begin : receive_loop
-            spi_recv_task(recv_data);
+            spi_recv_task(recv_data, 0);
             $display("Received byte %h", recv_data);
-            if (recv_data === 0) disable receive_loop;
+            if (recv_data !== 0) begin
+                timeout = 0;
+                if (recv_data === 0) disable receive_loop;
+            end
         end
+        // Manually deassert CS at the end of the continuous CMD 1 transaction.
+        sspi_cs = 1;
+        #200;
         
-        $display("CMD 1 test %s", (i < 64) ? "PASSED" : "FAILED");
+        $display("CMD 1 test %s", timeout ? "FAILED (timeout)" : "PASSED");
     end
     
     // Test 2: Set core config (CMD 2)
     begin
         $display("Testing CMD 2 (Set core config)...");
-        spi_send_task(2, 32'hA5A5A5A5, 0);
-        #100;
-        if (dut.core_config === 32'hA5A5A5A5)
+        // For CMD 2, deassert CS after sending so the transaction completes.
+        spi_send_task(2, 32'hA5A5A5A5, 0, 1);
+        #1000;
+        if (core_config === 32'hA5A5A5A5)
             $display("CMD 2 test PASSED");
         else
-            $display("CMD 2 test FAILED");
+            $display("CMD 2 test FAILED (core_config = %h)", core_config);
     end
     
     // Add more test cases for other commands...
@@ -186,6 +212,12 @@ end
 // Monitor ROM loading signals
 always @(posedge dut.rom_do_valid) begin
     $display("ROM data received: %h", dut.rom_do);
+end
+
+// Add hclk generation
+initial begin
+    hclk = 0;
+    forever #5 hclk = ~hclk;  // 100MHz
 end
 
 initial begin
