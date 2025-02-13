@@ -176,6 +176,7 @@ end
 
 assign sspi_miso = miso_sr[7 - miso_bit];
 
+`ifndef IVERILOG
 // text display
 textdisp #(.COLOR_LOGO(COLOR_LOGO)) disp (
     .clk(clk), .hclk(hclk), .resetn(resetn),
@@ -183,7 +184,9 @@ textdisp #(.COLOR_LOGO(COLOR_LOGO)) disp (
     .reg_char_we(textdisp_reg_char_sel ? mem_wstrb : 4'b0),
     .reg_char_di(mem_wdata) 
 );
-
+`else
+assign overlay = 0;
+`endif
 
 endmodule
 
