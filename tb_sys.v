@@ -153,7 +153,7 @@ initial begin
     #100;
     
     // Test 1: Get core config string (CMD 1)
-    begin
+    begin : test1
         reg [7:0] recv_data;
         integer i;
         $display("Testing CMD 1 (Get core config)...");

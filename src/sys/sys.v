@@ -40,7 +40,7 @@ localparam CONF_STR = {
     "-;",
     "O12,OSD key,Right+Select,Select+Start,Select+RB;",
     "-;",
-    "V,v",`BUILD_DATE
+    "V,v20240101"  // Simplified date without macro
 };
 
  // SPI Commands (all data is little-endian):
@@ -112,7 +112,7 @@ always @(posedge clk) begin
                         STATE_CMD: begin
                             data_reg <= {data_reg[23:0], spi_sr};
                             // Track data bytes received per command
-                            reg [2:0] data_cnt;
+                            reg [2:0] data_cnt = 0;
                             
                             case (cmd_reg)
                                 // Command 1 (get config) handled in MISO block
