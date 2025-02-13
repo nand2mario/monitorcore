@@ -35,13 +35,7 @@ module sys #(
     output sspi_miso
 );
 
-localparam CONF_STR = {
-    "Tangcores;",
-    "-;",
-    "O12,OSD key,Right+Select,Select+Start,Select+RB;",
-    "-;",
-    "V,v20240101"  // Simplified date without macro
-};
+localparam CONF_STR = "Tangcores;-;O12,OSD key,Right+Select,Select+Start,Select+RB;-;V,v20240101";
 
  // SPI Commands (all data is little-endian):
  // 1                       get core config string (null-terminated)
