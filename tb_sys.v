@@ -162,10 +162,10 @@ initial begin
         spi_send_task(1, 0, 0);
         
         // Receive response
-        for (i = 0; i < 64; i = i + 1) begin
+        for (i = 0; i < 64; i = i + 1) begin : receive_loop
             spi_recv_task(recv_data);
             $display("Received byte %h", recv_data);
-            if (recv_data === 0) break;
+            if (recv_data === 0) disable receive_loop;
         end
         
         $display("CMD 1 test %s", (i < 64) ? "PASSED" : "FAILED");
