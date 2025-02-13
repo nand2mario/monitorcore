@@ -147,7 +147,7 @@ always @(posedge clk) begin
                                 data_cnt <= (bit_cnt == 7) ? data_cnt + 1 : data_cnt;
                                 // Reset counter when starting new command
                                 if (state == STATE_IDLE) data_cnt <= 0;
-                            endcase
+                            end
                         end
                     endcase
                 end
