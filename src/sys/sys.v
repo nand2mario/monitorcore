@@ -185,7 +185,13 @@ textdisp #(.COLOR_LOGO(COLOR_LOGO)) disp (
     .reg_char_di(mem_wdata) 
 );
 `else
+// Mock for iverilog
 assign overlay = 0;
+assign overlay_color = 0;
+    
+module textdisp;
+    // Empty mock module
+endmodule
 `endif
 
 endmodule
