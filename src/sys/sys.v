@@ -111,27 +111,42 @@ always @(posedge clk) begin
                         end
                         STATE_CMD: begin
                             data_reg <= {data_reg[23:0], spi_sr};
+                            // Track data bytes received per command
+                            reg [2:0] data_cnt;
+                            
                             case (cmd_reg)
-                                2: if (data_reg[31:8]) core_config <= {data_reg[31:8], spi_sr};
-                                3: textdisp_reg_char_sel <= spi_sr[0];
-                                4: begin
-                                    mem_wdata <= {16'h0, data_reg[15:8], spi_sr};
-                                    mem_wstrb <= 4'b1111;
+                                // Command 1 (get config) handled in MISO block
+                                2: if (data_cnt == 3) core_config <= {data_reg[23:0], spi_sr}; // 4 bytes
+                                3: if (data_cnt == 0) textdisp_reg_char_sel <= spi_sr[0];      // 1 byte
+                                4: begin  // 2 bytes (x,y)
+                                    if (data_cnt == 1) begin
+                                        mem_wdata <= {16'h0, data_reg[7:0], spi_sr};
+                                        mem_wstrb <= 4'b1111;
+                                    end
                                 end
-                                5: begin
+                                5: begin  // Variable length string
                                     mem_wdata <= {24'h0, spi_sr};
                                     mem_wstrb <= (spi_sr == 0) ? 4'b0000 : 4'b0001;
                                 end
-                                6: rom_loading <= spi_sr[0];
-                                7: begin
-                                    if (rom_remain == 0) begin
+                                6: if (data_cnt == 0) rom_loading <= spi_sr[0];  // 1 byte
+                                7: begin  // 3 byte length + data
+                                    if (data_cnt < 2) begin
+                                        data_reg <= {data_reg[15:0], spi_sr};
+                                    end else if (data_cnt == 2) begin
                                         rom_remain <= {data_reg[15:0], spi_sr} - 1;
-                                    end else begin
+                                    end else if (rom_remain != 0) begin
                                         rom_do <= spi_sr;
                                         rom_do_valid <= 1;
                                         rom_remain <= rom_remain - 1;
                                     end
                                 end
+                            endcase
+                            
+                            // Increment data counter after processing byte
+                            if (cmd_reg != 0) begin
+                                data_cnt <= (bit_cnt == 7) ? data_cnt + 1 : data_cnt;
+                                // Reset counter when starting new command
+                                if (state == STATE_IDLE) data_cnt <= 0;
                             endcase
                         end
                     endcase
