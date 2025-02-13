@@ -43,6 +43,15 @@ localparam CONF_STR = {
     "V,v",`BUILD_DATE
 };
 
+ // SPI Commands (all data is little-endian):
+ // 1                       get core config string (null-terminated)
+ // 2 x[31:0]               set core config status (x is 32-bit)
+ // 3 x[7:0]                turn overlay on/off
+ // 4 x[7:0] y[7:0]         move text cursor to (x, y)
+ // 5 <string>              display null-terminated string from cursor
+ // 6 loading_state[7:0]    set loading state (rom_loading)
+ // 7 len[23:0] <data>      load len bytes of data to rom_do
+
 // SPI input synchronization
 reg [2:0] sspi_sync;
 always @(posedge clk) sspi_sync <= {sspi_sync[1:0], sspi_cs};
@@ -73,7 +82,7 @@ reg textdisp_reg_char_sel;
 reg [3:0] mem_wstrb;
 reg [31:0] mem_wdata;
 
-always @(posedge clk or negedge resetn) begin
+always @(posedge clk) begin
     if (!resetn) begin
         state <= STATE_IDLE;
         bit_cnt <= 0;
