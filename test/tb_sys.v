@@ -58,13 +58,14 @@ task spi_send_task;
         #100;
         
         // Send command byte
-        for (i = 0; i < 8; i = i + 1) begin
-            sspi_clk = 0;
-            sspi_mosi = cmd[7 - i];
-            #50;
-            sspi_clk = 1;
-            #50;
-        end
+        if (cmd > 0) 
+            for (i = 0; i < 8; i = i + 1) begin
+                sspi_clk = 0;
+                sspi_mosi = cmd[7 - i];
+                #50;
+                sspi_clk = 1;
+                #50;
+            end
         
         // Send data based on command
         case (cmd)
@@ -220,7 +221,7 @@ initial begin
         spi_send_task(4, {8'h12, 8'h03}, 0, 1); // X=0x12, Y=0x34
         #100;
         // Verify cursor position through x_wr/y_wr registers
-        if (dut.x_wr === 8'h12 && dut.y_wr === 8'h03)
+        if (dut.cursor_x === 8'h12 && dut.cursor_y === 8'h03)
             $display("CMD 4 test PASSED");
         else
             $display("CMD 4 test FAILED (x_wr = %h, y_wr = %h, we = %b)", 
@@ -229,42 +230,57 @@ initial begin
 
     // Test 5: Display string (CMD 5)
     begin
-        reg test_passed;
-        integer error_count;
+        integer error_count = 0;
         $display("Testing CMD 5 (Display string)...");
-        test_passed = 1'b1;
-        error_count = 0;
         
-        // Send 'H' and verify
-        spi_send_task(5, "H", 0, 0);
+        // Test 5a: Basic character writing
+        spi_send_task(4, {8'h00, 8'h00}, 0, 1); // Set cursor to (0,0)
+        #100;
+        spi_send_task(5, "A", 0, 0);
         #200;
-        if (dut.char_wr !== "H" || dut.we !== 1'b1) begin
-            $display("ERROR: 'H' not written (char_wr=%h, we=%b)", dut.char_wr, dut.we);
+        if (dut.x_wr !== 8'h00 || dut.y_wr !== 8'h00 || dut.char_wr !== "A") begin
             error_count += 1;
+            $display("A");
         end
 
-        // Send 'i' and verify
-        spi_send_task(5, "i", 0, 0);
+        // Test 5b: Cursor advancement
+        spi_send_task(0, "B", 0, 1);
         #200;
-        if (dut.char_wr !== "i" || dut.we !== 1'b1) begin
-            $display("ERROR: 'i' not written (char_wr=%h, we=%b)", dut.char_wr, dut.we);
+        if (dut.x_wr !== 8'h01 || dut.y_wr !== 8'h00 || dut.char_wr !== "B") begin
             error_count += 1;
+            $display("B");
         end
 
-        // Send null terminator and verify
-        spi_send_task(5, 8'h00, 0, 1);
+        // Test 5c: Line overflow
+        spi_send_task(4, {8'h1F, 8'h00}, 0, 1); // Set to column 31
+        #100;
+        spi_send_task(5, "C", 0, 0);
+        #200;
+        if (dut.x_wr !== 8'h1F || dut.y_wr !== 8'h00 || dut.char_wr !== "C") begin
+            error_count += 1;
+            $display("C");
+        end
+
+        spi_send_task(0, "D", 0, 0);
+        #200;
+        if (dut.x_wr !== 8'h20 || dut.y_wr !== 8'h00 || dut.char_wr !== "D" || dut.we !== 1'b0) begin
+            error_count += 1;
+            $display("D");
+        end
+
+        // Test 5d: Null terminator
+        spi_send_task(0, 8'h00, 0, 1);
         #200;
         if (dut.we !== 1'b0) begin
-            $display("ERROR: Null terminator not handled (we=%b)", dut.we);
             error_count += 1;
+            $display("null");
         end
 
-        // Final verdict
-        if (error_count == 0) begin
+        // Final result
+        if (error_count == 0)
             $display("CMD 5 test PASSED");
-        end else begin
-            $display("CMD 5 test FAILED with %0d errors", error_count);
-        end
+        else
+            $display("CMD 5 test FAILED (%0d errors)", error_count);
     end
 
     // Test 6: Set ROM loading state (CMD 6)

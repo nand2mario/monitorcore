@@ -23,8 +23,8 @@ module sys #(
     input [11:0] joy2,              // joystick 2
 
     // ROM loading interface
-    output reg rom_loading,         // 0-to-1 loading starts, 1-to-0 loading is finished
-    output reg [7:0] rom_do,            // first 64 bytes are snes header + 32 bytes after snes header 
+    output reg [7:0] rom_loading,   // 0-to-1 loading starts, 1-to-0 loading is finished
+    output reg [7:0] rom_do,        // first 64 bytes are snes header + 32 bytes after snes header 
     output reg rom_do_valid,        // strobe for rom_do
     
     output reg [31:0] core_config,
@@ -81,6 +81,10 @@ reg [7:0] y_wr;
 reg [7:0] char_wr;
 reg we;
 
+// Add these registers for cursor management
+reg [7:0] cursor_x;
+reg [7:0] cursor_y;
+
 always @(posedge clk) begin
     reg [7:0] spi_sr_t;
     if (!resetn) begin
@@ -97,6 +101,8 @@ always @(posedge clk) begin
         y_wr <= 0;
         char_wr <= 0;
         we <= 0;
+        cursor_x <= 0;
+        cursor_y <= 0;
     end else begin
         rom_do_valid <= 0;
         
@@ -122,18 +128,27 @@ always @(posedge clk) begin
                                 // Command 1 (get config) handled in MISO block
                                 2: core_config <= {data_reg[23:0], spi_sr_t}; // 4 bytes
                                 3: overlay <= spi_sr_t[0];          // 1 byte
-                                4: begin  // 2 bytes (x,y)
+                                4: begin  // Set cursor position
                                     if (data_cnt == 1) begin
-                                        x_wr <= data_reg[7:0];  // First byte is X
-                                        y_wr <= spi_sr_t;       // Second byte is Y
-                                        we <= 1'b1;             // Pulse write enable
+                                        cursor_x <= data_reg[7:0];
+                                        cursor_y <= spi_sr_t;
                                     end
                                 end
-                                5: begin  // Variable length string
-                                    char_wr <= spi_sr_t;        // Character to write
-                                    we <= (spi_sr_t != 0);      // Enable write unless null terminator
+                                5: begin  // Write string
+                                    if (spi_sr_t != 0) begin
+                                        // Write character at current cursor position
+                                        x_wr <= cursor_x;
+                                        y_wr <= cursor_y;
+                                        char_wr <= spi_sr_t;
+                                        we <= cursor_x < 32 && cursor_y < 28;
+                                        
+                                        // Advance cursor
+                                        if (cursor_x < 32) begin
+                                            cursor_x <= cursor_x + 1;
+                                        end
+                                    end
                                 end
-                                6: if (data_cnt == 0) rom_loading <= spi_sr_t[0];  // 1 byte
+                                6: if (data_cnt == 0) rom_loading <= spi_sr_t;
                                 7: begin  // 3 byte length + data
                                     if (data_cnt < 2) begin
                                         data_reg <= {data_reg[15:0], spi_sr_t};
