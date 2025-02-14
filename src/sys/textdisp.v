@@ -12,10 +12,10 @@ module textdisp(
                                         // we need 1 cycle to fetch character and 1 cycle to fetch font byte
 
     // Character write interface
-	input      [7:0]  x_wr,
-	input      [7:0]  y_wr,
-	input      [7:0]  char_wr,
-	input             we,
+	input      [4:0]  x_wr,
+	input      [4:0]  y_wr,
+	input      [6:0]  char_wr,
+	input             we
 );
 
 // BGR
@@ -41,11 +41,6 @@ reg [7:0] mem_do_b;
 reg is_cursor;
 reg [14:0] overlay_color_buf;
 
-wire [1:0] cmd = reg_char_di[31:24];
-wire [4:0] text_x = reg_char_di[20:16];
-wire [4:0] text_y = reg_char_di[12:8];
-wire [6:0] text_char = reg_char_di[6:0];
-
 // Char buffer, font and logo rom backed by Dual-port BRAM (total 2KB)
 // this is initialized with font.mi (font.vh + logo.vh)
 // $000-$37F: Character buffer RAM (32*28)
@@ -53,8 +48,8 @@ wire [6:0] text_char = reg_char_di[6:0];
 // $400-$800: Font ROM
 gowin_dpb_menu menu_mem (
     .clka(clk), .reseta(1'b0), .ocea(), .cea(1'b1), 
-    .ada({1'b0, text_y, text_x}), .wrea(reg_char_we[0] && cmd == 2'd0),
-    .dina({1'b0, text_char}), .douta(), 
+    .ada({1'b0, y_wr, x_wr}), .wrea(we),
+    .dina({1'b0, char_wr}), .douta(), 
 
     .clkb(hclk), .resetb(1'b0), .oceb(), .ceb(1'b1), 
     .adb(mem_addr_b), .wreb(1'b0), 

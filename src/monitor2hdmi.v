@@ -29,6 +29,7 @@ module monitor2hdmi (
     localparam SCALE = 5;
     localparam VIDEOID = 4;
     localparam VIDEO_REFRESH = 60.0;
+    localparam AUDIO_OUT_RATE = 32000;
 
     localparam IDIV_SEL_X5 = 3;
     localparam FBDIV_SEL_X5 = 54;
@@ -130,7 +131,7 @@ module monitor2hdmi (
           .clk_audio(clk_audio),
           .rgb(rgb), 
           .reset( ~resetn ),
-          .audio_sample_word(audio_sample_word),
+          .audio_sample_word(),
           .tmds(tmds), 
           .tmds_clock(tmdsClk), 
           .cx(cx), 
