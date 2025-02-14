@@ -15,7 +15,7 @@ module sys #(
     input resetn,
 
     // OSD display interface
-    output overlay,
+    output reg overlay,
     input [7:0] overlay_x,          // 0-255
     input [7:0] overlay_y,          // 0-223
     output [14:0] overlay_color,    // BGR5
@@ -73,12 +73,16 @@ localparam STATE_DATA = 2;
 reg [2:0] state;
 
 // Text display control
-reg textdisp_reg_char_sel;
-reg [3:0] mem_wstrb;
-reg [31:0] mem_wdata;
 reg [2:0] data_cnt;
 
+// Add new registers for textdisp interface
+reg [7:0] x_wr;
+reg [7:0] y_wr;
+reg [7:0] char_wr;
+reg we;
+
 always @(posedge clk) begin
+    reg [7:0] spi_sr_t;
     if (!resetn) begin
         state <= STATE_IDLE;
         bit_cnt <= 0;
@@ -88,15 +92,18 @@ always @(posedge clk) begin
         rom_loading <= 0;
         rom_remain <= 0;
         core_config <= 0;
-        textdisp_reg_char_sel <= 0;
-        mem_wstrb <= 0;
-        mem_wdata <= 0;
+        data_cnt <= 0;
+        x_wr <= 0;
+        y_wr <= 0;
+        char_wr <= 0;
+        we <= 0;
     end else begin
         rom_do_valid <= 0;
         
         if (spi_active) begin
             if (spi_clk_rising) begin
-                spi_sr <= {spi_sr[6:0], spi_mosi_sync[1]};
+                spi_sr_t = {spi_sr[6:0], spi_mosi_sync[1]};
+                spi_sr <= spi_sr_t;
                 bit_cnt <= (bit_cnt == 7) ? 3'd0 : bit_cnt + 1;
                 
                 if (bit_cnt == 7) begin
@@ -107,32 +114,33 @@ always @(posedge clk) begin
                             data_cnt <= 0;
                         end
                         STATE_CMD: begin
-                            data_reg <= {data_reg[23:0], spi_sr};
+                            data_reg <= {data_reg[23:0], spi_sr_t};
                             // Track data bytes received per command
                             data_cnt <= data_cnt + 1;
                             
                             case (cmd_reg)
                                 // Command 1 (get config) handled in MISO block
-                                2: if (data_cnt == 3) core_config <= {data_reg[23:0], spi_sr}; // 4 bytes
-                                3: if (data_cnt == 0) textdisp_reg_char_sel <= spi_sr[0];      // 1 byte
+                                2: core_config <= {data_reg[23:0], spi_sr_t}; // 4 bytes
+                                3: overlay <= spi_sr_t[0];          // 1 byte
                                 4: begin  // 2 bytes (x,y)
                                     if (data_cnt == 1) begin
-                                        mem_wdata <= {16'h0, data_reg[7:0], spi_sr};
-                                        mem_wstrb <= 4'b1111;
+                                        x_wr <= data_reg[7:0];  // First byte is X
+                                        y_wr <= spi_sr_t;       // Second byte is Y
+                                        we <= 1'b1;             // Pulse write enable
                                     end
                                 end
                                 5: begin  // Variable length string
-                                    mem_wdata <= {24'h0, spi_sr};
-                                    mem_wstrb <= (spi_sr == 0) ? 4'b0000 : 4'b0001;
+                                    char_wr <= spi_sr_t;        // Character to write
+                                    we <= (spi_sr_t != 0);      // Enable write unless null terminator
                                 end
-                                6: if (data_cnt == 0) rom_loading <= spi_sr[0];  // 1 byte
+                                6: if (data_cnt == 0) rom_loading <= spi_sr_t[0];  // 1 byte
                                 7: begin  // 3 byte length + data
                                     if (data_cnt < 2) begin
-                                        data_reg <= {data_reg[15:0], spi_sr};
+                                        data_reg <= {data_reg[15:0], spi_sr_t};
                                     end else if (data_cnt == 2) begin
-                                        rom_remain <= {data_reg[15:0], spi_sr} - 1;
+                                        rom_remain <= {data_reg[15:0], spi_sr_t} - 1;
                                     end else if (rom_remain != 0) begin
-                                        rom_do <= spi_sr;
+                                        rom_do <= spi_sr_t;
                                         rom_do_valid <= 1;
                                         rom_remain <= rom_remain - 1;
                                     end
@@ -146,8 +154,12 @@ always @(posedge clk) begin
             state <= STATE_IDLE;
             bit_cnt <= 0;
             spi_sr <= 0;
-            mem_wstrb <= 0;
             data_cnt <= 0;  // Reset data_cnt when SPI is inactive
+        end
+        
+        // Clear write enable after one cycle
+        if (!spi_active || state != STATE_CMD) begin
+            we <= 1'b0;
         end
     end
 end
@@ -181,8 +193,10 @@ assign sspi_miso = miso_sr[7 - miso_bit];
 textdisp #(.COLOR_LOGO(COLOR_LOGO)) disp (
     .clk(clk), .hclk(hclk), .resetn(resetn),
     .x(overlay_x), .y(overlay_y), .color(overlay_color),
-    .reg_char_we(textdisp_reg_char_sel ? mem_wstrb : 4'b0),
-    .reg_char_di(mem_wdata) 
+    .x_wr(x_wr),     // Connect new ports
+    .y_wr(y_wr),
+    .char_wr(char_wr),
+    .we(we)
 );
 `else
 

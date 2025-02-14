@@ -203,8 +203,101 @@ initial begin
             $display("CMD 2 test FAILED (core_config = %h)", core_config);
     end
     
-    // Add more test cases for other commands...
-    
+    // Test 3: Toggle overlay (CMD 3)
+    begin
+        $display("Testing CMD 3 (Toggle overlay)...");
+        spi_send_task(3, 8'h01, 0, 1); // Turn on overlay
+        #100;
+        if (overlay === 1'b1)
+            $display("CMD 3 test PASSED");
+        else
+            $display("CMD 3 test FAILED (overlay = %b)", overlay);
+    end
+
+    // Test 4: Set cursor position (CMD 4)
+    begin
+        $display("Testing CMD 4 (Set cursor position)...");
+        spi_send_task(4, {8'h12, 8'h03}, 0, 1); // X=0x12, Y=0x34
+        #100;
+        // Verify cursor position through x_wr/y_wr registers
+        if (dut.x_wr === 8'h12 && dut.y_wr === 8'h03)
+            $display("CMD 4 test PASSED");
+        else
+            $display("CMD 4 test FAILED (x_wr = %h, y_wr = %h, we = %b)", 
+                    dut.x_wr, dut.y_wr, dut.we);
+    end
+
+    // Test 5: Display string (CMD 5)
+    begin
+        reg test_passed;
+        integer error_count;
+        $display("Testing CMD 5 (Display string)...");
+        test_passed = 1'b1;
+        error_count = 0;
+        
+        // Send 'H' and verify
+        spi_send_task(5, "H", 0, 0);
+        #200;
+        if (dut.char_wr !== "H" || dut.we !== 1'b1) begin
+            $display("ERROR: 'H' not written (char_wr=%h, we=%b)", dut.char_wr, dut.we);
+            error_count += 1;
+        end
+
+        // Send 'i' and verify
+        spi_send_task(5, "i", 0, 0);
+        #200;
+        if (dut.char_wr !== "i" || dut.we !== 1'b1) begin
+            $display("ERROR: 'i' not written (char_wr=%h, we=%b)", dut.char_wr, dut.we);
+            error_count += 1;
+        end
+
+        // Send null terminator and verify
+        spi_send_task(5, 8'h00, 0, 1);
+        #200;
+        if (dut.we !== 1'b0) begin
+            $display("ERROR: Null terminator not handled (we=%b)", dut.we);
+            error_count += 1;
+        end
+
+        // Final verdict
+        if (error_count == 0) begin
+            $display("CMD 5 test PASSED");
+        end else begin
+            $display("CMD 5 test FAILED with %0d errors", error_count);
+        end
+    end
+
+    // Test 6: Set ROM loading state (CMD 6)
+    begin
+        $display("Testing CMD 6 (ROM loading state)...");
+        // Test enable
+        spi_send_task(6, 8'h01, 0, 1);
+        #100;
+        if (rom_loading !== 1'b1)
+            $display("CMD 6 enable test FAILED");
+        
+        // Test disable
+        spi_send_task(6, 8'h00, 0, 1);
+        #100;
+        if (rom_loading === 1'b0)
+            $display("CMD 6 test PASSED");
+        else
+            $display("CMD 6 disable test FAILED");
+    end
+
+    // Test 7: ROM data transfer (CMD 7)
+    begin
+        $display("Testing CMD 7 (ROM data transfer)...");
+        // Send 3 bytes (length=3) with random data
+        spi_send_task(7, 0, 24'h000003, 1);
+        #1000;
+        // Verify 3 bytes received with valid pulses
+        if (dut.rom_remain === 24'h0)
+            $display("CMD 7 test PASSED");
+        else
+            $display("CMD 7 test FAILED (rom_remain = %h)", dut.rom_remain);
+    end
+
     #1000;
     $finish;
 end

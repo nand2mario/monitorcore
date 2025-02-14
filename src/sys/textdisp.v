@@ -11,10 +11,11 @@ module textdisp(
     output reg [14:0] color,            // pixel color, NOTE: 2-cycle latency
                                         // we need 1 cycle to fetch character and 1 cycle to fetch font byte
 
-    // PicoRV32 I/O interface. Every write updates one character
-    // [23:16]: x, [15:8]: y, [7-0]: character to print
-	input      [3:0]  reg_char_we,
-	input      [31:0] reg_char_di
+    // Character write interface
+	input      [7:0]  x_wr,
+	input      [7:0]  y_wr,
+	input      [7:0]  char_wr,
+	input             we,
 );
 
 // BGR
