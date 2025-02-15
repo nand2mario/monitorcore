@@ -70,7 +70,7 @@ task uart_recv_task;
             data[i] = uart_tx;
             #500;             // Wait 1 bit period
         end
-        #500;                 // Skip stop bit
+        // #250;                 // Skip remaining half of stop bit
     end
 endtask
 
@@ -111,10 +111,10 @@ initial begin
         $display("Testing CMD 2 (Set core config)...");
         // For CMD 2, deassert CS after sending so the transaction completes.
         uart_send_task(2);
-        uart_send_task(32'hA5);
-        uart_send_task(32'hA5);
-        uart_send_task(32'hA5);
-        uart_send_task(32'hA5);
+        uart_send_task(8'hA5);
+        uart_send_task(8'hA5);
+        uart_send_task(8'hA5);
+        uart_send_task(8'hA5);
         #1000;
         if (core_config === 32'hA5A5A5A5)
             $display("CMD 2 test PASSED");
@@ -126,7 +126,8 @@ initial begin
     begin
         $display("Testing CMD 3 (Toggle overlay)...");
         uart_send_task(3);
-        #100;
+        uart_send_task(8'h01);
+        #1000;
         if (overlay === 1'b1)
             $display("CMD 3 test PASSED");
         else
@@ -139,7 +140,7 @@ initial begin
         uart_send_task(4);
         uart_send_task(8'h12);
         uart_send_task(8'h03);
-        #100;
+        #1000;
         // Verify cursor position through x_wr/y_wr registers
         if (dut.cursor_x === 8'h12 && dut.cursor_y === 8'h03)
             $display("CMD 4 test PASSED");
@@ -166,8 +167,8 @@ initial begin
         end
 
         // Test 5b: Cursor advancement
-        uart_send_task(0);
         uart_send_task("B");
+        uart_send_task(0);
         #200;
         if (dut.x_wr !== 8'h01 || dut.y_wr !== 8'h00 || dut.char_wr !== "B") begin
             error_count += 1;
@@ -177,19 +178,18 @@ initial begin
         // Test 5c: Line overflow
         uart_send_task(4);
         uart_send_task(8'h1F);
-        uart_send_task(8'h00);
+        uart_send_task(8'h01);
         uart_send_task(5);
         uart_send_task("C");
         #200;
-        if (dut.x_wr !== 8'h1F || dut.y_wr !== 8'h00 || dut.char_wr !== "C") begin
+        if (dut.x_wr !== 8'h1F || dut.y_wr !== 8'h01 || dut.char_wr !== "C") begin
             error_count += 1;
             $display("C");
         end
 
-        uart_send_task(0);
         uart_send_task("D");
         #200;
-        if (dut.x_wr !== 8'h20 || dut.y_wr !== 8'h00 || dut.char_wr !== "D" || dut.we !== 1'b0) begin
+        if (dut.x_wr !== 8'h20 || dut.y_wr !== 8'h01 || dut.char_wr !== "D" || dut.we !== 1'b0) begin
             error_count += 1;
             $display("D");
         end
