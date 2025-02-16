@@ -13,8 +13,8 @@ module uart_rx #(
 localparam CLKS_PER_BIT = CLK_FREQ / BAUD_RATE;
 localparam HALF_BIT = CLKS_PER_BIT / 2;
 
-reg [3:0] state;
-reg [15:0] clk_count;
+reg [1:0] state;
+reg [$clog2(CLKS_PER_BIT)-1:0] clk_count;
 reg [2:0] bit_index;
 reg [7:0] rx_data;
 
@@ -57,6 +57,7 @@ always @(posedge clk) begin
                     valid <= 1;
                     data <= rx_data;
                     state <= 0;
+                    bit_index <= 0;
                 end else clk_count <= clk_count + 1;
             end
         endcase

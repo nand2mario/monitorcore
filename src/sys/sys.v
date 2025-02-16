@@ -15,7 +15,7 @@ module sys #(
     input resetn,
 
     // OSD display interface
-    output reg overlay,
+    output overlay,
     input [7:0] overlay_x,          // 0-255
     input [7:0] overlay_y,          // 0-223
     output [14:0] overlay_color,    // BGR5
@@ -40,6 +40,9 @@ localparam [8*STR_LEN-1:0] CONF_STR = "Tangcores;-;O12,OSD key,Right+Select,Sele
 // Remove SPI parameters and add UART parameters
 localparam CLK_FREQ = 50_000_000;
 localparam BAUD_RATE = 2_000_000;
+
+reg overlay_reg = 1;
+assign overlay = overlay_reg;
 
 // UART receiver signals
 wire [7:0] rx_data;
@@ -152,7 +155,7 @@ always @(posedge clk) begin
                         end
                     end
                     3: begin
-                        overlay <= rx_data[0];
+                        overlay_reg <= rx_data[0];
                         state <= STATE_IDLE;    // Single byte command
                     end
                     4: case (data_cnt)
@@ -182,6 +185,8 @@ always @(posedge clk) begin
                             state <= STATE_IDLE;
                         end
                     end
+                    default:
+                        state <= STATE_IDLE;
                 endcase
             end
 
@@ -216,9 +221,7 @@ end
 textdisp #(.COLOR_LOGO(COLOR_LOGO)) disp (
     .clk(clk), .hclk(hclk), .resetn(resetn),
     .x(overlay_x), .y(overlay_y), .color(overlay_color),
-    .x_wr(x_wr),     // Connect new ports
-    .y_wr(y_wr),
-    .char_wr(char_wr),
+    .x_wr(x_wr), .y_wr(y_wr), .char_wr(char_wr),
     .we(we)
 );
 `endif
