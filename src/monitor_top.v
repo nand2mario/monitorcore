@@ -78,6 +78,7 @@ gowin_pll_hdmi pll_hdmi (
 );
 
 wire overlay;
+wor [11:0] joy1_btns, joy2_btns;
 
 // Controller input
 `ifdef CONTROLLER_SNES

@@ -80,18 +80,17 @@ uart_tx #(
 );
 
 // Command processing state machine
-localparam STATE_IDLE = 0;     // waiting for command
-localparam STATE_PARAM = 1;    // receiving parameters
-localparam STATE_RESPONSE = 2; // sending response
-reg [2:0] state;
+localparam RECV_IDLE = 0;     // waiting for command
+localparam RECV_PARAM = 1;    // receiving parameters
+localparam RECV_RESPONSE_REQ = 2; // sending response
+localparam RECV_RESPONSE_ACK = 3; // waiting for response ack
+reg [2:0] recv_state;
 
 // UART command buffer
 reg [7:0] cmd_reg;
 reg [31:0] data_reg;
 reg [23:0] rom_remain;
 reg [3:0] data_cnt;
-reg [7:0] conf_str_idx;
-reg tx_busy;
 
 // Add new registers for textdisp interface
 reg [7:0] x_wr;
@@ -103,7 +102,10 @@ reg we;
 reg [7:0] cursor_x;
 reg [7:0] cursor_y;
 
-// UART commands:
+reg send_config_string_req;
+reg send_config_string_ack;
+
+// Receive UART commands:
  // 1                       get core config string (null-terminated)
  // 2 x[31:0]               set core config status
  // 3 x[7:0]                turn overlay on/off
@@ -111,9 +113,10 @@ reg [7:0] cursor_y;
  // 5 <string>              display null-terminated string from cursor
  // 6 loading_state[7:0]    set loading state (rom_loading)
  // 7 len[23:0] <data>      load len bytes of data to rom_do
+// Command processing state machine (RX)
 always @(posedge clk) begin
     if (!resetn) begin
-        state <= STATE_IDLE;
+        recv_state <= RECV_IDLE;
         cmd_reg <= 0;
         data_reg <= 0;
         rom_loading <= 0;
@@ -126,24 +129,21 @@ always @(posedge clk) begin
         we <= 0;
         cursor_x <= 0;
         cursor_y <= 0;
-        conf_str_idx <= 0;
-        tx_busy <= 0;
     end else begin
         rom_do_valid <= 0;
-        tx_valid <= 0;
         we <= 0;
 
-        case (state)
-            STATE_IDLE: if (rx_valid) begin
+        case (recv_state)
+            RECV_IDLE: if (rx_valid) begin
                 cmd_reg <= rx_data;
                 if (rx_data == 1)
-                    state <= STATE_RESPONSE;
+                    recv_state <= RECV_RESPONSE_REQ;
                 else
-                    state <= STATE_PARAM;
+                    recv_state <= RECV_PARAM;
                 data_cnt <= 0;
             end
             
-            STATE_PARAM: if (rx_valid) begin
+            RECV_PARAM: if (rx_valid) begin
                 data_reg <= {data_reg[23:0], rx_data};
                 data_cnt <= data_cnt + 1;
                 
@@ -151,23 +151,23 @@ always @(posedge clk) begin
                     2: begin
                         if (data_cnt == 3) begin // Received 4 bytes
                             core_config <= {data_reg[23:0], rx_data};
-                            state <= STATE_IDLE;
+                            recv_state <= RECV_IDLE;
                         end
                     end
                     3: begin
                         overlay_reg <= rx_data[0];
-                        state <= STATE_IDLE;    // Single byte command
+                        recv_state <= RECV_IDLE;    // Single byte command
                     end
                     4: case (data_cnt)
                         0: cursor_x <= rx_data;
                         default: begin
                             cursor_y <= rx_data;
-                            state <= STATE_IDLE;
+                            recv_state <= RECV_IDLE;
                         end
                     endcase
                     5: begin
                         if (rx_data == 0) begin // Null terminator
-                            state <= STATE_IDLE;
+                            recv_state <= RECV_IDLE;
                         end else begin
                             x_wr <= cursor_x;
                             y_wr <= cursor_y;
@@ -178,41 +178,107 @@ always @(posedge clk) begin
                     end
                     6: begin
                         rom_loading <= rx_data;
-                        state <= STATE_IDLE;    // Single byte command
+                        recv_state <= RECV_IDLE;    // Single byte command
                     end
                     7: begin
                         if (data_cnt >= 3 && rom_remain == 0) begin
-                            state <= STATE_IDLE;
+                            recv_state <= RECV_IDLE;
                         end
                     end
                     default:
-                        state <= STATE_IDLE;
+                        recv_state <= RECV_IDLE;
                 endcase
             end
 
-            STATE_RESPONSE:                   
-                if (cmd_reg == 1) begin         // Send config string as response
-                    if (tx_ready && !tx_busy) begin
-                        if (conf_str_idx <= STR_LEN) begin
-                            tx_data <= (conf_str_idx < STR_LEN) ? 
-                                CONF_STR[8*STR_LEN - 1 - (8*conf_str_idx) -: 8] : 
-                                8'h00;
-                            tx_valid <= 1;
-                            conf_str_idx <= conf_str_idx + 1;
-                            tx_busy <= 1;
-                        end else begin
-                            conf_str_idx <= 0;
-                            state <= STATE_IDLE;
-                        end
-                    end
+            RECV_RESPONSE_REQ:                   // request to send config string
+                if (cmd_reg == 1) begin         
+                    send_config_string_req ^= 1;
+                    recv_state <= RECV_RESPONSE_ACK;
                 end else begin
-                    state <= STATE_IDLE;
+                    recv_state <= RECV_IDLE;
+                end
+
+            RECV_RESPONSE_ACK:                  // wait for TX to finish
+                if (send_config_string_req == send_config_string_ack) begin
+                    recv_state <= RECV_IDLE;
                 end
         endcase
         
-        if (tx_valid && tx_ready) tx_busy <= 0;
-        if (!tx_ready) tx_busy <= 0;
+    end
+end
+
+localparam SEND_IDLE = 0;
+localparam SEND_CONFIG_STRING = 1;
+localparam SEND_JOYPAD = 2;
+
+reg [1:0] send_state;
+reg [2:0] send_idx;
+localparam JOY_UPDATE_INTERVAL = CLK_FREQ / 50; // 20ms interval for 50Hz
+reg [31:0] joy_timer;
+reg [15:0] joy1_reg;
+reg [15:0] joy2_reg;
+
+// UART transmission logic (TX)
+always @(posedge clk) begin
+    if (!resetn) begin
+        joy_timer <= 0;
+        send_state <= 0;
+    end else begin
+        tx_valid <= 0;
         
+        // Joypad state transmission logic
+        joy_timer <= joy_timer + 1;
+        if (joy_timer >= JOY_UPDATE_INTERVAL) begin
+            joy_timer <= 0;
+            joy1_reg <= joy1;
+            joy2_reg <= joy2;
+        end
+
+        // UART transmission state machine
+        case (send_state)
+            SEND_IDLE: begin
+                if (joy_timer >= JOY_UPDATE_INTERVAL) begin
+                    send_state <= SEND_JOYPAD;
+                    send_idx <= 0;
+                end else if (send_config_string_req != send_config_string_ack) begin
+                    send_state <= SEND_CONFIG_STRING;
+                    send_idx <= 0;
+                end
+            end
+
+            SEND_CONFIG_STRING: begin
+                if (tx_ready && ~tx_valid) begin
+                    if (send_idx == STR_LEN) begin
+                        tx_data <= 8'h00;  // Null terminator
+                        tx_valid <= 1;
+                        send_state <= SEND_IDLE;
+                        send_config_string_ack <= send_config_string_req;
+                    end else begin
+                        tx_data <= CONF_STR[8*(STR_LEN - send_idx - 1) +: 8];
+                        tx_valid <= 1;
+                        send_idx <= send_idx + 1;
+                    end
+                end
+            end
+
+            SEND_JOYPAD: begin
+                if (tx_ready && ~tx_valid) begin
+                    case (send_idx)
+                        0: tx_data <= 8'h01; // Start byte
+                        1: tx_data <= joy1_reg[7:0]; // Joy1 low byte
+                        2: tx_data <= joy1_reg[15:8]; // Joy1 high byte
+                        3: tx_data <= joy2_reg[7:0]; // Joy2 low byte
+                        4: tx_data <= joy2_reg[15:8]; // Joy2 high byte
+                    endcase
+                    tx_valid <= 1;
+                    send_idx <= send_idx + 1;
+                    if (send_idx == 4) begin
+                        send_state <= SEND_IDLE;
+                        send_config_string_ack <= send_config_string_req;
+                    end
+                end
+            end
+        endcase
     end
 end
 
