@@ -160,10 +160,11 @@ always @(posedge clk) begin
                     end
                     4: case (data_cnt)
                         0: cursor_x <= rx_data;
-                        default: begin
+                        1: begin
                             cursor_y <= rx_data;
                             recv_state <= RECV_IDLE;
                         end
+                        default: recv_state <= RECV_IDLE;
                     endcase
                     5: begin
                         if (rx_data == 0) begin // Null terminator
@@ -171,9 +172,11 @@ always @(posedge clk) begin
                         end else begin
                             x_wr <= cursor_x;
                             y_wr <= cursor_y;
-                            cursor_x <= cursor_x < 32 ? cursor_x + 1 : cursor_x;
                             char_wr <= rx_data;
-                            we <= cursor_x < 32 && cursor_y < 28;
+                            if (cursor_x < 32) begin
+                                cursor_x <= cursor_x + 1;
+                                we <= 1;
+                            end
                         end
                     end
                     6: begin
