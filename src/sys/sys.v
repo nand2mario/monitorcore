@@ -38,7 +38,7 @@ localparam integer STR_LEN = 73; // number of characters in the config string
 localparam [8*STR_LEN-1:0] CONF_STR = "Tangcores;-;O12,OSD key,Right+Select,Select+Start,Select+RB;-;V,v20240101";
 
 // Remove SPI parameters and add UART parameters
-localparam CLK_FREQ = 50_000_000;
+localparam CLK_FREQ = FREQ;
 localparam BAUD_RATE = 2_000_000;
 
 reg overlay_reg = 1;

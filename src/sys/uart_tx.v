@@ -10,7 +10,7 @@ module uart_tx #(
     output ready
 );
 
-localparam CLKS_PER_BIT = CLK_FREQ / BAUD_RATE;
+localparam CLKS_PER_BIT = (CLK_FREQ + BAUD_RATE/2)/ BAUD_RATE;
 localparam IDLE = 0, START = 1, DATA = 2, STOP = 3;
 
 reg [1:0] state;

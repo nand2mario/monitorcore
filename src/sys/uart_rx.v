@@ -10,7 +10,7 @@ module uart_rx #(
     output error
 );
 
-localparam CLKS_PER_BIT = CLK_FREQ / BAUD_RATE;
+localparam CLKS_PER_BIT = (CLK_FREQ + BAUD_RATE/2) / BAUD_RATE;
 localparam HALF_BIT = CLKS_PER_BIT / 2;
 
 reg [1:0] state;
