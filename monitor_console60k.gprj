@@ -21,13 +21,13 @@
         <File path="src/hdmi/serializer.sv" type="file.verilog" enable="1"/>
         <File path="src/hdmi/source_product_description_info_frame.sv" type="file.verilog" enable="1"/>
         <File path="src/hdmi/tmds_channel.sv" type="file.verilog" enable="1"/>
+        <File path="src/iosys/gowin_dpb_menu.v" type="file.verilog" enable="1"/>
+        <File path="src/iosys/iosys_bl616.v" type="file.verilog" enable="1"/>
+        <File path="src/iosys/textdisp.v" type="file.verilog" enable="1"/>
+        <File path="src/iosys/uart_fractional.v" type="file.verilog" enable="1"/>
+        <File path="src/iosys/uart_integer.v" type="file.verilog" enable="1"/>
         <File path="src/monitor2hdmi.v" type="file.verilog" enable="1"/>
         <File path="src/monitor_top.v" type="file.verilog" enable="1"/>
-        <File path="src/sys/gowin_dpb_menu.v" type="file.verilog" enable="1"/>
-        <File path="src/sys/sys.v" type="file.verilog" enable="1"/>
-        <File path="src/sys/textdisp.v" type="file.verilog" enable="1"/>
-        <File path="src/sys/uart_rx.v" type="file.verilog" enable="1"/>
-        <File path="src/sys/uart_tx.v" type="file.verilog" enable="1"/>
         <File path="src/console60k/monitor.cst" type="file.cst" enable="1"/>
         <File path="src/monitor_console60k.rao" type="file.gao" enable="0"/>
     </FileList>
