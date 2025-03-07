@@ -3,11 +3,8 @@
 <Project>
     <Template>FPGA</Template>
     <Version>5</Version>
-    <Device name="GW5AT-60B" pn="GW5AT-LV60PG484AC1/I0">gw5at60b-002</Device>
+    <Device name="GW2AR-18C" pn="GW2AR-LV18QN88C8/I7">gw2ar18c-000</Device>
     <FileList>
-        <File path="src/console60k/config.v" type="file.verilog" enable="1"/>
-        <File path="src/console60k/gowin_pll_27.v" type="file.verilog" enable="1"/>
-        <File path="src/console60k/gowin_pll_hdmi.v" type="file.verilog" enable="1"/>
         <File path="src/controller_ds2.sv" type="file.verilog" enable="1"/>
         <File path="src/controller_snes.v" type="file.verilog" enable="1"/>
         <File path="src/dualshock_controller.v" type="file.verilog" enable="1"/>
@@ -27,7 +24,8 @@
         <File path="src/iosys/uart_fixed.v" type="file.verilog" enable="1"/>
         <File path="src/monitor2hdmi.v" type="file.verilog" enable="1"/>
         <File path="src/monitor_top.v" type="file.verilog" enable="1"/>
-        <File path="src/console60k/monitor.cst" type="file.cst" enable="1"/>
+        <File path="src/nano20k/config.v" type="file.verilog" enable="1"/>
+        <File path="src/nano20k/gowin_pll_hdmi.v" type="file.verilog" enable="1"/>
         <File path="src/monitor_console60k.rao" type="file.gao" enable="0"/>
     </FileList>
 </Project>

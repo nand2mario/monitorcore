@@ -5,9 +5,8 @@
     <Version>5</Version>
     <Device name="GW5AT-60B" pn="GW5AT-LV60PG484AC1/I0">gw5at60b-002</Device>
     <FileList>
-        <File path="src/console60k/config.v" type="file.verilog" enable="1"/>
-        <File path="src/console60k/gowin_pll_27.v" type="file.verilog" enable="1"/>
-        <File path="src/console60k/gowin_pll_hdmi.v" type="file.verilog" enable="1"/>
+        <File path="src/console60k/pll_27.v" type="file.verilog" enable="1"/>
+        <File path="src/console60k/pll_74.v" type="file.verilog" enable="1"/>
         <File path="src/controller_ds2.sv" type="file.verilog" enable="1"/>
         <File path="src/controller_snes.v" type="file.verilog" enable="1"/>
         <File path="src/dualshock_controller.v" type="file.verilog" enable="1"/>
@@ -25,9 +24,10 @@
         <File path="src/iosys/iosys_bl616.v" type="file.verilog" enable="1"/>
         <File path="src/iosys/textdisp.v" type="file.verilog" enable="1"/>
         <File path="src/iosys/uart_fixed.v" type="file.verilog" enable="1"/>
+        <File path="src/mega60k/config.v" type="file.verilog" enable="1"/>
         <File path="src/monitor2hdmi.v" type="file.verilog" enable="1"/>
         <File path="src/monitor_top.v" type="file.verilog" enable="1"/>
-        <File path="src/console60k/monitor.cst" type="file.cst" enable="1"/>
+        <File path="src/mega60k/monitor.cst" type="file.cst" enable="1"/>
         <File path="src/monitor_console60k.rao" type="file.gao" enable="0"/>
     </FileList>
 </Project>

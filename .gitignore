@@ -1,0 +1,11 @@
+*.o
+*.elf
+*.bin
+*.list
+pnr
+gao
+gwsynthesis
+temp
+roms
+*.user
+.aider*
