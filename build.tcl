@@ -1,6 +1,6 @@
 if {$argc == 0} {
     puts "Usage: $argv0 <device>"
-    puts "          device: nano20k, primer25k, mega60k, mega138k, console60k"
+    puts "          device: nano20k, primer25k, mega60k, mega138k, mega138k_31002, console60k"
     exit 1
 }
 
@@ -31,6 +31,12 @@ if {$dev eq "nano20k"} {
     add_file -type verilog "src/mega138k/pll_27.v"
     add_file -type verilog "src/mega138k/pll_74.v"
     add_file -type cst "src/mega60k/monitor.cst"
+} elseif {$dev eq "mega138k_31002"} {
+    set_device GW5AST-LV138PG484AC1/I0 -device_version B
+    add_file -type verilog "src/mega60k/config.v"
+    add_file -type verilog "src/mega138k/pll_27.v"
+    add_file -type verilog "src/mega138k/pll_74.v"
+    add_file -type cst "src/mega138k/monitor_31002.cst"
 } elseif {$dev eq "console60k"} {
     set_device GW5AT-LV60PG484AC1/I0 -device_version B
     add_file -type verilog "src/console60k/config.v"

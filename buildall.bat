@@ -34,6 +34,12 @@ echo.
 if %errorlevel% neq 0 exit /b %errorlevel%
 
 echo.
+echo ============ Building mega138k_31002 with ds2 controller ===============
+echo.
+%GWSH% build.tcl mega138k_31002 ds2
+if %errorlevel% neq 0 exit /b %errorlevel%
+
+echo.
 echo ============ Building console60k with ds2 controller ===============
 echo.
 %GWSH% build.tcl console60k ds2
