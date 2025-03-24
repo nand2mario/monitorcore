@@ -2,13 +2,13 @@
 @echo off
 
 
-set GWSH=\Gowin\Gowin_V1.9.10.03_x64\IDE\bin\gw_sh
+set GWSH=\Gowin\Gowin_V1.9.11.01_x64\IDE\bin\gw_sh
 @REM set GWSH_NEW=\Gowin\Gowin_V1.9.10.03_x64\IDE\bin\gw_sh
 
 @REM echo. 
 @REM echo ============ Building nano20k ===============
 @REM echo.
-@REM %GWSH% build.tcl nano20k
+%GWSH% build.tcl nano20k
 
 @REM echo.
 @REM echo ============ Building primer25k with snes/nes controller ===============

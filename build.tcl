@@ -16,6 +16,8 @@ if {$dev eq "nano20k"} {
     add_file -type verilog "src/primer25k/config.v"
     add_file -type verilog "src/console60k/pll_27.v"
     add_file -type verilog "src/console60k/pll_74.v"
+    add_file -type verilog "src/console60k/pll_12.v"
+    add_file -type verilog "src/usb_hid_host.v"
     add_file -type cst "src/primer25k/monitor.cst"
     set_option -use_ready_as_gpio 1
     set_option -use_done_as_gpio 1
