@@ -8,6 +8,9 @@
         <File path="src/console60k/config.v" type="file.verilog" enable="1"/>
         <File path="src/console60k/gowin_pll_27.v" type="file.verilog" enable="1"/>
         <File path="src/console60k/gowin_pll_hdmi.v" type="file.verilog" enable="1"/>
+        <File path="src/console60k/pll_12.v" type="file.verilog" enable="1"/>
+        <File path="src/console60k/pll_27.v" type="file.verilog" enable="1"/>
+        <File path="src/console60k/pll_74.v" type="file.verilog" enable="1"/>
         <File path="src/controller_ds2.sv" type="file.verilog" enable="1"/>
         <File path="src/controller_snes.v" type="file.verilog" enable="1"/>
         <File path="src/dualshock_controller.v" type="file.verilog" enable="1"/>
@@ -27,7 +30,9 @@
         <File path="src/iosys/uart_fixed.v" type="file.verilog" enable="1"/>
         <File path="src/monitor2hdmi.v" type="file.verilog" enable="1"/>
         <File path="src/monitor_top.v" type="file.verilog" enable="1"/>
+        <File path="src/usb_hid_host.v" type="file.verilog" enable="1"/>
         <File path="src/console60k/monitor.cst" type="file.cst" enable="1"/>
         <File path="src/monitor_console60k.rao" type="file.gao" enable="0"/>
+        <File path="src/usb.rao" type="file.gao" enable="1"/>
     </FileList>
 </Project>

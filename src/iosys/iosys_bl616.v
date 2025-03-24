@@ -266,8 +266,8 @@ reg [2:0] send_state;
 reg [$clog2(STR_LEN+1)-1:0] send_idx;
 localparam JOY_UPDATE_INTERVAL = 50_000_000 / 50; // 20ms interval for 50Hz
 reg [$clog2(JOY_UPDATE_INTERVAL+1)-1:0] joy_timer;
-reg [15:0] joy1_reg;
-reg [15:0] joy2_reg;
+reg [15:0] joy1_reg = 16'hffff;
+reg [15:0] joy2_reg = 16'hffff;
 
 // UART transmission logic (TX)
 always @(posedge clk) begin
