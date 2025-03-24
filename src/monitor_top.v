@@ -30,10 +30,14 @@ module monitor_top (
     output [2:0] tmds_d_n,
 
     // USB1 and USB2
+`ifdef USB1
     inout usb1_dp,
     inout usb1_dn,
+`endif
+`ifdef USB2
     inout usb2_dp,
     inout usb2_dn,
+`endif
 
 `ifdef CONTROLLER_SNES
     // snes controllers
@@ -133,7 +137,7 @@ controller_ds2 #(.FREQ(FREQ)) joy2_ds2 (
 
 wire [11:0] joy_usb1, joy_usb2;
 
-`ifdef CONSOLE
+`ifdef USB1
 wire clk12;
 wire pll_lock_12;
 wire usb_conerr;
@@ -144,16 +148,18 @@ usb_hid_host usb_hid_host (
     .usb_dm(usb1_dn), .usb_dp(usb1_dp),
     .game_snes(joy_usb1), .typ(usb_type), .conerr(usb_conerr)
 );
+assign led = ~{joy_usb1[4:0], usb_type, usb_conerr};
+`else
+assign joy_usb1 = 12'b0;
+`endif
+
+`ifdef USB2
 usb_hid_host usb_hid_host2 (
     .usbclk(clk12), .usbrst_n(pll_lock_12),
     .usb_dm(usb2_dn), .usb_dp(usb2_dp),
     .game_snes(joy_usb2)
 );
-
-assign led = ~{joy_usb1[4:0], usb_type, usb_conerr};
-
 `else
-assign joy_usb1 = 12'b0;
 assign joy_usb2 = 12'b0;
 `endif
 
